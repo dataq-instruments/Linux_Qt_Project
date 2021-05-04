@@ -1,6 +1,6 @@
 # Linux_Qt_Project
 
-This is a project provided and shared by Reyan Valdes
+This is a project provided and shared by Mr. Reyan Valdes of ITGTEC
 
 It comes with source code  & binary build for Ubuntu 18 or higher.
 
