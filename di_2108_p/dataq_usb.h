@@ -43,7 +43,7 @@ class DATAQ_USB: public DATAQ_BASE  // Inherited from DATAQ_BASE that implement 
  public:
 
   DATAQ_USB();                   //empty constructor
-  DATAQ_USB(string dev_model, uint32_t timeout_ms=2000);      //constructor with number of channels and measurement range (default: +/- 5VDC
+  DATAQ_USB(string dev_model, uint32_t timeout_ms=2000, string serialNumber="");      //constructor with number of channels and measurement range (default: +/- 5VDC
 
   bool connect() override;     //initialize and connect to the DI-DATAQ device by USB
   void disconnect() override;          //close the interface to the DI_DATAQ

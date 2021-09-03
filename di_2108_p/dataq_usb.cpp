@@ -27,8 +27,11 @@
 #include <iomanip>
 #include <chrono> // for timer control
 #include <dataq_usb.h> // for DATAQ_USB Class
+//#include <mutex> // for interlock multiple devices when open
+#include <QSystemSemaphore> // for interlock between process, the instance Number in the attributes determine which is responsible to create it or not
 
 using namespace std;
+
 
 //default constructor
 DATAQ_USB::DATAQ_USB() : DATAQ_BASE() // Calling Base first to initialize all variables
@@ -42,8 +45,8 @@ DATAQ_USB::DATAQ_USB() : DATAQ_BASE() // Calling Base first to initialize all va
 //constructor with basic parameters
 // number of channels, range of operation (applied to all channels), acquisition Mode, timeout(ms)
 //
-DATAQ_USB::DATAQ_USB(string dev_model, uint32_t timeout_ms) :
-  DATAQ_BASE (dev_model, timeout_ms) // Calling Base first to initialize all variables
+DATAQ_USB::DATAQ_USB(string dev_model, uint32_t timeout_ms, string serialNumber) :
+  DATAQ_BASE (dev_model, timeout_ms, serialNumber) // Calling Base first to initialize all variables
 {
    ctx = NULL;
    dev_handle = NULL;
@@ -57,6 +60,8 @@ bool DATAQ_USB::connect()
   libusb_device **devs; //pointer to pointer of device, used to retrieve a list of devices
 
   ctx = NULL; //a libusb session
+
+  dev_handle = NULL; // connection handle
 
   int r; //for return values
 
@@ -75,32 +80,89 @@ bool DATAQ_USB::connect()
   if (isDebugging())
    cout<<"[INFO] Devices listed: "<< cnt << endl;
   
+  // Added global SystemSemaphore as interlock to avoid conflict when multiple devices attempted to open at same time
+  // The System Semaphore 'discovery' it is used for sync all process, where only one can do discovery at a time
+  QSystemSemaphore *sem;
+
+  // open the semaphore, if it is not created it will and sync with other process in First In First Out
+  // open the semaphore
+
+  sem = new QSystemSemaphore ("discovery", 1, QSystemSemaphore::Open); // Only enable 1 resource
+
+  // Global inter-process mutex with acquire()
+  sem->acquire();
+
   // Show devices list
   for (int idx =0; idx < cnt; idx++)
   {
      libusb_device *device = devs[idx];
      libusb_device_descriptor desc ={0};
+
+
      int rc = libusb_get_device_descriptor(device, &desc);
      if (rc ==0)
      {
 //       cout << "[ERROR] Error getting description" << endl;
      }
 
-//     cout << "[INFO] Vendor: " << desc.idVendor << " Device: " << desc.idProduct << endl;
+     cout << "[INFO] Vendor: " << desc.idVendor << " Device: " << desc.idProduct << endl;
 
      if ( (desc.idVendor ==  config.vidLibUSB) && (desc.idProduct == config.pidLibUSB))
      {
        if (isDebugging())
        {
         cout << "[INFO] Found model " << config.modelName << endl;
-        cout << "[INFO] Vendor ID: " << std::hex << desc.idVendor << " Product ID: " << std::hex << desc.idProduct << " Address " << (int) libusb_get_device_address(device) << endl;
+        cout << "[INFO] Vendor ID: " << std::hex << desc.idVendor << " Product ID: " << std::hex << desc.idProduct << " Address " <<  std::dec << (int) libusb_get_device_address(device)
+             << " Serial Index: " << (int) desc.iSerialNumber << endl;
         cout << std::dec << endl;
        }
-     }
 
-  }
+       if (!serialNum.empty()) // Checking by Serial number also
+       {
+         // Check the Serial Number, this is only available if it is not collecting
+         libusb_device_handle *handle;
 
-  dev_handle = libusb_open_device_with_vid_pid(ctx, config.vidLibUSB, config.pidLibUSB);
+         int error = libusb_open (device, &handle);
+
+            if (error != 0)
+             cout << "[ERROR] Failed when attempt to open for checking serial, maybe it is used already" << endl;
+            else
+             {
+                dev_handle = handle; //used for the following commands stopScan and getSerialNum
+
+                isInit=true; //initialization successful to be able use the commands
+
+                stopScan(); // make sure it stop first just in case was scaning before and interrupted, it will clear also any previous communication
+
+                string serial = getSerialNum();
+
+                cout << "Discovery Serial Number: " << serial << endl; // change in 1-8
+
+                if (serial == serialNum)
+                {
+                  cout << "[INFO] Found Serial Number " << serial << endl;
+                  break;
+                }
+                else
+                 {
+                    isInit=false; // reset initialization flag
+
+                   libusb_close(handle);
+                   cout << "[WARN] Device with serial " << serial << "dropped, didn't match" << endl;
+                 }
+               } // no error opening handle
+
+         } // checking serial number
+       } // if device matched
+
+    } // loop for all devices
+
+  sem->release(); // Release the interlock
+
+  delete sem; // release memory
+
+  if (serialNum.empty())
+    dev_handle = libusb_open_device_with_vid_pid(ctx, config.vidLibUSB, config.pidLibUSB);
 
   if(dev_handle == NULL){
     cout<<"[ERROR] Cannot find device "<< config.modelName << endl;

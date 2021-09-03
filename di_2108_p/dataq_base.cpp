@@ -53,10 +53,12 @@ DATAQ_BASE::DATAQ_BASE()
 //constructor with basic parameters
 // Device Model Name, timeout(ms)
 //
-DATAQ_BASE::DATAQ_BASE(string dev_model, uint32_t timeout_ms)
+DATAQ_BASE::DATAQ_BASE(string dev_model, uint32_t timeout_ms, string serialNumber)
 {
 
   setModel (dev_model, timeout_ms);
+
+  serialNum = serialNumber;
 
   //set status booleans to false
   isRun=false;
@@ -327,6 +329,7 @@ void DATAQ_BASE::recordTime(tDataChannels & data, double timesec,  uint32_t limi
 
 [config]
 model = DI-2108P       ; Model
+serial =               ; Serial Number
 timeout = 1000         ; timeout (ms)
 nchannels = 4          ; Total of Analog Input Channels
 ai_range = 1           ; Analog input range: 0= +/- 10 VDC, 1= +/- 5 vdc, 2= +- 2.5 vdc, 3= 0-10 vdc, 4= 0-5 vdc
@@ -353,8 +356,8 @@ bool DATAQ_BASE::loadRecordConfig (string fileName,  tRecordConfig &recConfig)
        cout << "Can't load " << fileName << endl;
        return false;
    }
-
    recConfig.model = iniFile.Get("config", "model", "DI-2108P");
+   recConfig.serial = iniFile.Get("config", "serial", "");
    recConfig.timeout   = iniFile.GetInteger ("config", "timeout", 1000);
    recConfig.nchannels = iniFile.GetInteger ("config", "nchannels", 1);
    recConfig.ai_range  = iniFile.GetInteger ("config", "ai_range", 1);
@@ -370,6 +373,7 @@ bool DATAQ_BASE::loadRecordConfig (string fileName,  tRecordConfig &recConfig)
 
    cout << "Config loaded from " << fileName << endl;
    cout << " model = " << recConfig.model << endl;
+   cout << " serial = " << recConfig.serial << endl;
    cout << " timeout = " << recConfig.timeout << endl;
    cout << " nchannels = " << recConfig.nchannels << endl;
    cout << " ai_range = " <<  recConfig.ai_range << endl;
@@ -403,6 +407,8 @@ void DATAQ_BASE::cyclicRecord ( const tRecordConfig &recConfig)
 
       return;
    };
+
+   serialNum = recConfig.serial; // Set serial number
 
    setDebugMode(recConfig.debug); // set debug mode
 
@@ -491,6 +497,24 @@ void DATAQ_BASE::cyclicRecord ( const tRecordConfig &recConfig)
 
 //***********************************************************************************************************************
 
+ // Load the configuration from file and starting cyclic record
+bool DATAQ_BASE::loadConfigCyclicRecord (string fileName)
+{
+    tRecordConfig config;
+
+    if (!loadRecordConfig(fileName, config)) // Load configuration file
+    {
+       cout << "[ERROR] Could not load record config file 'config.ini' record operation aborted" << endl;
+       return false;
+    }
+
+    cyclicRecord(config); // perform cyclic recording as per configuration file with minimum records
+
+    return true;
+}
+
+//***********************************************************************************************************************
+
 // Setup main communication parameters by default values
 // Work Mode: BINARY, Sample Rate: 160 Khz (Max), Package Size: 64 Bytes
 void DATAQ_BASE::setupCommParam()
@@ -512,6 +536,7 @@ void DATAQ_BASE::setupCommParam()
 
     setPackSize(DI_PACK_SIZE_64_BYTES);  //request 0-16 byte package size, 1- 32 bytes, 2- 64 bytes, 3- 128 bytes, 4- 256 bytes, 5- 512, 6- 1024 bytes, 7- 2048 bytes, has to be accordingly the sample rate
 }
+
 
 //***********************************************************************************************************************
 
@@ -578,7 +603,7 @@ string DATAQ_BASE::getSerialNum()
 
   string serial = getParamFromResp(result, "info 6");
 
-  return serial.substr(0,8);
+  return serial.substr(1,8);
 }
 
 //***********************************************************************************************************************

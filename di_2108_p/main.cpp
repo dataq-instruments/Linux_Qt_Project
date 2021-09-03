@@ -9,7 +9,7 @@ void ReadExample1()
 {
   cout << "Start Example 1- Using simple recordTime for batch processing (DI-2108P)" << endl;
 
-  DATAQ_USB  dev("DI-2108P", 1000); // Configure to work with DI-2108P, use timeout of 1 sec
+  DATAQ_USB  dev("DI-2108P", 1000, "6059A55E"); // Configure to work with DI-2108P, use timeout of 1 sec
 
   dev.setDebugMode(true); // set debug mode
 
@@ -27,14 +27,15 @@ void ReadExample1()
   dev.addScanList(DI_CHANNEL_TYPE_RATE, 10); // Rate Status
   dev.addScanList(DI_CHANNEL_TYPE_COUNT, 11); // Counter Status
 
+  cout << "Serial Number: " << dev.getSerialNum() << endl;
 
   tDataChannels data;
 
-  dev.recordTime(data, 5); // record for few seconds
+  dev.recordTime(data, 1); // record for few seconds
 
   dev.disconnect(); // close communication
 
-  dev.showData(data); // Print all the data based on scan list channel
+//  dev.showData(data); // Print all the data based on scan list channel
 
   // Save records in a file
   dev.writeDataFile(data, "test1.txt"); // write all data using same format as showData but in a text file
@@ -192,13 +193,14 @@ void ReadExample3()
 
 void ReadExample4()
 {
+
   cout << "Start Example 4- Read example using load config .ini file and cyclic recording (DI-2108P)" << endl;
 
   DATAQ_USB  dev;
 
   tRecordConfig config;
 
-  if (!dev.loadRecordConfig("config.ini", config)) // Load configuration file
+  if (!dev.loadRecordConfig("/opt/sdc/core/dataq/config.ini", config)) // Load configuration file
   {
      cout << "[ERROR] Could not load record config file 'config.ini' record operation aborted" << endl;
      return;
@@ -206,20 +208,47 @@ void ReadExample4()
 
   dev.cyclicRecord(config); // perform cyclic recording as per configuration file with minimum records
 
+  cout << "End File Recording..." << endl;
+
+  exit(-1);
+
 };
 
+
+//***********************************************************************************************************************
+
+// Read example using load config .ini file and cyclic recording passing from command line
+// the config.ini should be in same place that the executable, check dataq_base.h for the structure of config.ini
+
+void ReadExample5(string fileName)
+{
+
+  cout << "Start Example 5- Read example using load config .ini file passing from command line and cyclic recording (DI-2108P)" << endl;
+
+  DATAQ_USB  dev;
+
+  dev.loadConfigCyclicRecord (fileName);
+
+  cout << "End File Recording..." << endl;
+
+  exit(-1);
+
+};
 
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
 
-    ReadExample1(); // Recording for some time, uses as batch processing
+//    ReadExample1(); // Recording for some time, uses as batch processing
 
-    ReadExample2(); // Read data by small chunk for realtime processing
+//    ReadExample2(); // Read data by small chunk for realtime processing
 
-    ReadExample3(); // Read data  for realtime processing and set different parameters
+//    ReadExample3(); // Read data  for realtime processing and set different parameters
 
-    ReadExample4(); // Read example using load config .ini file and cyclic recording
+//    ReadExample4(); // Read example using load config .ini file and cyclic recording
+
+    if (argc ==2) // the first one is the main program, and second argument is the first one
+      ReadExample5(string(argv[1])); // Read example using load config .ini file passed as argument in command line and cyclic recording
 
     return a.exec();
 }

@@ -211,6 +211,7 @@ struct tDataChannels
 
 [config]
 model = DI-2108P       ; Model
+serial = 6059A55E      ; Serial Number
 timeout = 1000         ; timeout (ms)
 nchannels = 4          ; Total of Analog Input Channels
 ai_range = 1           ; Analog input range: 0= +/- 10 VDC, 1= +/- 5 vdc, 2= +- 2.5 vdc, 3= 0-10 vdc, 4= 0-5 vdc
@@ -231,6 +232,7 @@ min_records = 80000    ; Need to reach minimum records on each cycle
 struct tRecordConfig
 {
   string model;          // model name of DATAQ device
+  string serial;         // Serial number
   uint32_t timeout;     // timeout (ms)
   uint16_t nchannels;   // Total of Analog Input Channels
   uint16_t ai_range;    //  Analog input range: 0= +/- 10 VDC, 1= +/- 5 vdc, 2= +- 2.5 vdc, 3= 0-10 vdc, 4= 0-5 vdc, ...
@@ -258,7 +260,7 @@ class DATAQ_BASE
  public:
 
   DATAQ_BASE();                   //empty constructor
-  DATAQ_BASE(string dev_model, uint32_t timeout_ms=2000);      //constructor with number of channels and measurement range (default: +/- 5VDC
+  DATAQ_BASE(string dev_model, uint32_t timeout_ms=2000, string serialNumber="");      //constructor with number of channels and measurement range (default: +/- 5VDC
   virtual bool setModel(string dev_model, uint32_t timeout_ms=2000); // Set model and timeout, in case the empty constructor was called
 
   virtual bool connect() {return false;};     // Abstract initialize and connect to the DI-DATAQ device
@@ -277,6 +279,7 @@ class DATAQ_BASE
   void recordTime(tDataChannels & data, double timesec, uint32_t limitMin =0); // Record data for time (seconds) or fraction of it
   bool loadRecordConfig (string fileName,  tRecordConfig &recConfig); // Read the recording configuration from .ini file
   void cyclicRecord ( const tRecordConfig &recConfig); // cyclic recording based on the recording configuration
+  bool loadConfigCyclicRecord (string fileName); // Load or read the configuration from file and starting cyclic record
   bool writeDataFile (const tDataChannels &data, string fileName, bool overwrite=true, uint16_t precision = SET_DEC_PRECISION); // Write in text file the data, the file will be overwritten if exist
   bool createLockFile (string fileName); // Create an empty file with the lck at the end as signal for other process want to read the file was done
   bool deleteLockFile (string fileName); // Delete lock file, return true if the file was deleted, otherwise return false
@@ -348,6 +351,8 @@ class DATAQ_BASE
   uint16_t scanIndex =0; // scan index into the scanlist vector to keep tracking of channels already read and parse
 
   uint32_t timeoutms; // timeout ms
+
+  string serialNum; // Serial Number
 
   tModelConfig config; // Model config some paramers are determine when calling detDeviceIDs, setSampleRate, readDividend
 
